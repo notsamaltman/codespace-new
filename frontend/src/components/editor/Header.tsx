@@ -35,7 +35,6 @@ const colorClasses = {
 export function Header({
   roomId = "room-abc123",
   roomName,
-  collaborators = defaultCollaborators,
 }: HeaderProps) {
   const navigate = useNavigate();
   const activeCount = collaborators.filter((c) => c.isActive).length;
