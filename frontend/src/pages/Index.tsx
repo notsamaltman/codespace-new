@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { io } from "socket.io-client"; // <-- import socket.io-client
 import { Header } from "@/components/editor/Header";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { SidePanel } from "@/components/editor/SidePanel";
@@ -21,15 +22,60 @@ const Index = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [language, setLanguage] = useState("python");
   const [code, setCode] = useState(defaultCode);
-
   const [copied, setCopied] = useState(false);
-
-  // 🔐 room access states
   const [checkingRoom, setCheckingRoom] = useState(true);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [roomInfo, setRoomInfo] = useState(null);
 
-  // ✅ CHECK ROOM ACCESS ON LOAD
+  // -------------------------
+  // 1️⃣ Create socket instance
+  // -------------------------
+  const [socket, setSocket] = useState(null);
+
+  useEffect(() => {
+    if (!classroomId || checkingRoom || showJoinModal) return;
+
+    const newSocket = io(import.meta.env.VITE_API_BASE_URL, {
+      autoConnect: false,
+      auth: { token: localStorage.getItem("token") },
+    });
+
+    setSocket(newSocket);
+    newSocket.connect();
+
+    // join the room
+    newSocket.emit("join-room", { roomId: classroomId });
+
+    // listen for code updates from other users
+    newSocket.on("code-update", (newCode) => {
+      setCode(newCode);
+    });
+
+    // listen for users joining (optional)
+    newSocket.on("user-joined", ({ userId }) => {
+      console.log("User joined:", userId);
+    });
+
+    // cleanup on unmount or room change
+    return () => {
+      newSocket.emit("leave-room", { roomId: classroomId });
+      newSocket.disconnect();
+    };
+  }, [classroomId, checkingRoom, showJoinModal]);
+
+  // -------------------------
+  // 2️⃣ Broadcast local code changes
+  // -------------------------
+  const handleCodeChange = (newCode) => {
+    setCode(newCode);
+    if (socket) {
+      socket.emit("code-change", { roomId: classroomId, code: newCode });
+    }
+  };
+
+  // -------------------------
+  // 3️⃣ Room access logic (unchanged)
+  // -------------------------
   useEffect(() => {
     if (!classroomId) return;
 
@@ -37,14 +83,8 @@ const Index = () => {
       try {
         const res = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/rooms/check/${classroomId}`,
-          {
-            headers: {
-
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
         );
-
         const data = await res.json();
 
         if (data.inRoom) {
@@ -64,7 +104,6 @@ const Index = () => {
     checkRoom();
   }, [classroomId]);
 
-  // ✅ JOIN ROOM
   const handleJoinRoom = async () => {
     try {
       const res = await fetch(
@@ -78,16 +117,13 @@ const Index = () => {
           body: JSON.stringify({ roomId: classroomId }),
         }
       );
-
       if (!res.ok) throw new Error("Join failed");
-
       setShowJoinModal(false);
     } catch (err) {
       console.error("Join room error", err);
     }
   };
 
-  // ✅ SHARE HANDLER
   const handleShare = async () => {
     const link = `${window.location.origin}/editor?classroom=${classroomId}`;
     await navigator.clipboard.writeText(link);
@@ -95,7 +131,6 @@ const Index = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ⏳ BLOCK UI WHILE CHECKING
   if (checkingRoom) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -106,41 +141,30 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* 🔒 JOIN ROOM MODAL */}
       {showJoinModal && roomInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-background border rounded-lg shadow-lg w-full max-w-md p-6">
             <h2 className="text-xl font-semibold mb-2">Join Room</h2>
-
             <p className="text-sm text-muted-foreground mb-4">
               You are not a member of this room.
             </p>
-
             <div className="space-y-2 text-sm">
               <p><strong>Name:</strong> {roomInfo.name}</p>
               <p><strong>Members:</strong> {roomInfo.participantCount}</p>
               <p><strong>Language:</strong> {roomInfo.language || "Not set"}</p>
             </div>
-
             <div className="mt-6 flex justify-end gap-2">
               <Button variant="outline" onClick={() => window.history.back()}>
                 Cancel
               </Button>
-              <Button onClick={handleJoinRoom}>
-                Join Room
-              </Button>
+              <Button onClick={handleJoinRoom}>Join Room</Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <Header
-        roomId={classroomId || undefined}
-        roomName={roomInfo?.name}
-      />
+      <Header roomId={classroomId || undefined} roomName={roomInfo?.name} />
 
-      {/* Share bar */}
       <div className="border-b px-4 py-2 flex justify-end">
         <Button
           onClick={handleShare}
@@ -152,26 +176,19 @@ const Index = () => {
         >
           {copied ? (
             <>
-              <Check className="w-4 h-4 mr-2" />
-              Link copied
+              <Check className="w-4 h-4 mr-2" /> Link copied
             </>
           ) : (
             <>
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
+              <Share2 className="w-4 h-4 mr-2" /> Share
             </>
           )}
         </Button>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         <main className="flex-1 flex flex-col p-4 pb-20 lg:pb-4 min-w-0">
-          <CodeEditor
-            code={code}
-            onChange={setCode}
-            language={language}
-          />
+          <CodeEditor code={code} onChange={handleCodeChange} language={language} />
         </main>
 
         <div className={`${isPanelOpen ? "flex" : "hidden"} lg:flex`}>
