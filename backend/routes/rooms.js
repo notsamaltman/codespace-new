@@ -10,8 +10,6 @@ export default (db) => {
   const { name } = req.body;
   const hostId = req.user?.id;
 
-  console.log("Creating room by user:", req.user); // debug
-
   if (!name) return res.status(400).json({ error: "Room name required" });
   if (!hostId) return res.status(400).json({ error: "Invalid user" });
 
@@ -108,7 +106,6 @@ export default (db) => {
       code: r.code,
     }));
 
-    console.log("Sending rooms:", classrooms); // log to debug
     res.json(classrooms); // ✅ must send JSON, not res.send()
   });
 });
@@ -180,6 +177,33 @@ export default (db) => {
             );
           }
         );
+      }
+    );
+  });
+
+  router.delete("/:id", auth, (req, res) => {
+    const roomId = req.params.id;
+    const userId = req.user.id;
+
+    db.run(
+      `DELETE FROM rooms WHERE id = ? AND host_id = ?`,
+      [roomId, userId],
+      function (err) {
+        if (err) {
+          console.error("Delete room error:", err);
+          return res.status(500).json({ error: "Failed to delete room" });
+        }
+
+        if (this.changes === 0) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized or room not found" });
+        }
+
+        // cleanup room_users
+        db.run(`DELETE FROM room_users WHERE room_id = ?`, [roomId]);
+
+        res.json({ success: true });
       }
     );
   });
