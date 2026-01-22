@@ -64,6 +64,10 @@ const Auth = () => {
 
       const data = await res.json();
 
+      localStorage.setItem("token", data.token);
+      navigate("/editor");
+
+
       if (!res.ok) {
         throw new Error(data.error || "Authentication failed");
       }
