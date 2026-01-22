@@ -10,8 +10,6 @@ export default (db) => {
   const { name } = req.body;
   const hostId = req.user?.id;
 
-  console.log("Creating room by user:", req.user); // debug
-
   if (!name) return res.status(400).json({ error: "Room name required" });
   if (!hostId) return res.status(400).json({ error: "Invalid user" });
 
@@ -108,7 +106,6 @@ export default (db) => {
       code: r.code,
     }));
 
-    console.log("Sending rooms:", classrooms); // log to debug
     res.json(classrooms); // ✅ must send JSON, not res.send()
   });
 });
@@ -183,6 +180,90 @@ export default (db) => {
       }
     );
   });
+
+  router.delete("/:id", auth, (req, res) => {
+    const roomId = req.params.id;
+    const userId = req.user.id;
+
+    db.run(
+      `DELETE FROM rooms WHERE id = ? AND host_id = ?`,
+      [roomId, userId],
+      function (err) {
+        if (err) {
+          console.error("Delete room error:", err);
+          return res.status(500).json({ error: "Failed to delete room" });
+        }
+
+        if (this.changes === 0) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized or room not found" });
+        }
+
+        // cleanup room_users
+        db.run(`DELETE FROM room_users WHERE room_id = ?`, [roomId]);
+
+        res.json({ success: true });
+      }
+    );
+  });
+
+  // ===== Check Room Access =====
+router.get("/check/:roomId", auth, (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  if (!roomId) {
+    return res.status(400).json({ error: "roomId is required" });
+  }
+
+  // 1. Check if room exists
+  db.get(
+    `SELECT * FROM rooms WHERE id = ?`,
+    [roomId],
+    (err, room) => {
+      if (err) {
+        console.error("DB error fetching room:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // 2. Check if user is already in room
+      db.get(
+        `SELECT 1 FROM room_users WHERE room_id = ? AND user_id = ?`,
+        [roomId, userId],
+        (err2, membership) => {
+          if (err2) {
+            console.error("DB error checking membership:", err2);
+            return res.status(500).json({ error: "Database error" });
+          }
+
+          // ✅ User already in room
+          if (membership) {
+            return res.json({ inRoom: true });
+          }
+
+          // ❌ Not in room → return room info
+          res.json({
+            inRoom: false,
+            room: {
+              id: room.id,
+              name: room.name,
+              hostId: room.host_id,
+              participantCount: room.participant_count,
+              language: room.language,
+              code: room.code,
+            },
+          });
+        }
+      );
+    }
+  );
+});
+
 
   return router;
 };
