@@ -41,7 +41,7 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (localStorage.getItem("token")) {
-      navigate("/editor");
+      navigate("/dashboard");
     }
   }, [navigate]);
 
@@ -85,7 +85,7 @@ const Auth = () => {
       });
 
       if (mode === "login") {
-        navigate("/editor");
+        navigate("/dashboard");
       } else {
         setMode("login");
       }

@@ -6,7 +6,7 @@ export const Footer = () => {
   const footerLinks = {
     product: [
       { label: "Features", href: "/features" },
-      { label: "Editor", href: "/editor" },
+      { label: "Dashboard", href: "/dashboard" },
     ],
     company: [
       { label: "About", href: "#" },

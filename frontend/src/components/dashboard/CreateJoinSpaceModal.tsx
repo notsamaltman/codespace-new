@@ -1,54 +1,108 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-}
-
-const CreateJoinSpaceModal = ({ open, onClose }: Props) => {
+export default function CreateJoinSpaceModal({ open, onClose }) {
+  const router = useNavigate();
   const [spaceName, setSpaceName] = useState("");
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [joinLink, setJoinLink] = useState("");
+  const [generatedLink, setGeneratedLink] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const token = localStorage.getItem("token");
 
   if (!open) return null;
 
-  const handleCreateSpace = () => {
-    if (!spaceName.trim()) {
-      toast.error("Please enter a space name");
-      return;
+  // CREATE ROOM
+  const handleCreateSpace = async () => {
+  if (!spaceName.trim()) {
+    toast.error("Please enter a space name");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_URL}/rooms/create`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: spaceName }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to create room");
     }
 
-    // MOCK link generation
-    const fakeId = Math.random().toString(36).substring(2, 10);
-    const link = `${window.location.origin}/editor?space=${fakeId}`;
-
+    const data = await res.json();
+    const link = `/editor/${data.id}`;
     setGeneratedLink(link);
-    toast.success("Space created!");
-  };
+    toast.success("Space created! Share the link to invite others.");
+    setSpaceName("");
+    router(link);
+  } catch (error) {
+    toast.error(error.message || "Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
 
+  // COPY LINK
   const handleCopy = async () => {
     if (!generatedLink) return;
     await navigator.clipboard.writeText(generatedLink);
     setCopied(true);
     toast.success("Link copied to clipboard");
-
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleJoinSpace = () => {
-    if (!joinLink.trim()) {
-      toast.error("Paste an invite link");
-      return;
+  // JOIN ROOM
+  const handleJoinSpace = async () => {
+  if (!joinLink.trim()) {
+    toast.error("Paste invite link");
+    return;
+  }
+
+  const match = joinLink.match(/\/join\/([a-zA-Z0-9-_]+)/);
+  const roomId = match ? match[1] : joinLink;
+  const token = localStorage.getItem("token");
+
+  setLoading(true);
+  try {
+    const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+
+    const res = await fetch(`${API_URL}/rooms/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ roomId }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to join room");
     }
 
-    toast.info("Joining space (backend coming soon)");
-    console.log("Join link:", joinLink);
-  };
+    const data = await res.json();
+    toast.success("Joined space!");
+    onClose();
+    router(`/space/${data.roomId || data.roomId}`);
+  } catch (error) {
+    toast.error(error.message || "Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -74,20 +128,17 @@ const CreateJoinSpaceModal = ({ open, onClose }: Props) => {
               placeholder="Enter space name"
               value={spaceName}
               onChange={(e) => setSpaceName(e.target.value)}
+              disabled={loading}
             />
-            <Button onClick={handleCreateSpace}>
-              Create
+            <Button onClick={handleCreateSpace} disabled={loading}>
+              {loading ? "Creating..." : "Create"}
             </Button>
           </div>
 
-          {generatedLink && (
+          {/* {generatedLink && (
             <div className="flex items-center gap-2 mt-2">
               <Input readOnly value={generatedLink} />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleCopy}
-              >
+              <Button variant="outline" size="icon" onClick={handleCopy}>
                 {copied ? (
                   <Check className="w-4 h-4 text-success" />
                 ) : (
@@ -95,18 +146,18 @@ const CreateJoinSpaceModal = ({ open, onClose }: Props) => {
                 )}
               </Button>
             </div>
-          )}
+          )} */}
         </div>
 
-        {/* DIVIDER */}
+        {/* DIVIDER
         <div className="relative my-6">
           <div className="border-t border-border" />
           <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card px-3 text-xs text-muted-foreground">
             OR
           </span>
-        </div>
+        </div> */}
 
-        {/* JOIN SPACE */}
+        {/* JOIN SPACE
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">
             Join an existing space
@@ -117,15 +168,14 @@ const CreateJoinSpaceModal = ({ open, onClose }: Props) => {
               placeholder="Paste invite link"
               value={joinLink}
               onChange={(e) => setJoinLink(e.target.value)}
+              disabled={loading}
             />
-            <Button variant="secondary" onClick={handleJoinSpace}>
-              Join
+            <Button variant="secondary" onClick={handleJoinSpace} disabled={loading}>
+              {loading ? "Joining..." : "Join"}
             </Button>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
-};
-
-export default CreateJoinSpaceModal;
+}
