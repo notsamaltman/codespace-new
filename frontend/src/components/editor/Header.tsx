@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface HeaderProps {
   roomId?: string;
@@ -28,12 +28,12 @@ const onlineUsers = [
   { id: "2", name: "Alex Chen" },
 ];
 
-export function Header({
-  roomId = "room-abc123",
-  roomName,
-}: HeaderProps) {
+export function Header({ roomId, roomName }: HeaderProps) {
   const navigate = useNavigate();
+  const { id } = useParams(); // ✅ hook INSIDE component
   const userInitials = "ME";
+
+  const effectiveRoomId = roomId || id || "unknown-room";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -65,7 +65,9 @@ export function Header({
           ) : (
             <>
               Session:{" "}
-              <span className="text-foreground font-medium">{roomId}</span>
+              <span className="text-foreground font-medium">
+                {effectiveRoomId}
+              </span>
             </>
           )}
         </span>
@@ -73,11 +75,11 @@ export function Header({
 
       {/* Right side */}
       <div className="flex items-center gap-4 pr-4">
-        {/* ✅ Online dropdown */}
+        {/* Online users dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
-              <Users className="w-6 h-6" />
+              <Users className="w-5 h-5" />
               <span>{onlineUsers.length} online</span>
             </button>
           </DropdownMenuTrigger>
@@ -102,7 +104,7 @@ export function Header({
         {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Avatar className="h-11 w-11 cursor-pointer">
+            <Avatar className="h-10 w-10 cursor-pointer">
               <AvatarFallback className="bg-muted text-xs font-medium">
                 {userInitials}
               </AvatarFallback>

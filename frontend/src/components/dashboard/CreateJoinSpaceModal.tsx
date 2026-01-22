@@ -43,10 +43,11 @@ export default function CreateJoinSpaceModal({ open, onClose }) {
     }
 
     const data = await res.json();
-    const link = `${window.location.origin}/join/${data.id}`;
+    const link = `/editor/${data.id}`;
     setGeneratedLink(link);
     toast.success("Space created! Share the link to invite others.");
     setSpaceName("");
+    router(link);
   } catch (error) {
     toast.error(error.message || "Something went wrong");
   } finally {
@@ -134,7 +135,7 @@ export default function CreateJoinSpaceModal({ open, onClose }) {
             </Button>
           </div>
 
-          {generatedLink && (
+          {/* {generatedLink && (
             <div className="flex items-center gap-2 mt-2">
               <Input readOnly value={generatedLink} />
               <Button variant="outline" size="icon" onClick={handleCopy}>
@@ -145,18 +146,18 @@ export default function CreateJoinSpaceModal({ open, onClose }) {
                 )}
               </Button>
             </div>
-          )}
+          )} */}
         </div>
 
-        {/* DIVIDER */}
+        {/* DIVIDER
         <div className="relative my-6">
           <div className="border-t border-border" />
           <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-card px-3 text-xs text-muted-foreground">
             OR
           </span>
-        </div>
+        </div> */}
 
-        {/* JOIN SPACE */}
+        {/* JOIN SPACE
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">
             Join an existing space
@@ -173,7 +174,7 @@ export default function CreateJoinSpaceModal({ open, onClose }) {
               {loading ? "Joining..." : "Join"}
             </Button>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

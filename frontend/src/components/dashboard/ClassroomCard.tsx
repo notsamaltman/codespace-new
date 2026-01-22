@@ -24,7 +24,7 @@ export const ClassroomCard = ({
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/editor?classroom=${id}`);
+    navigate(`/editor/${id}`);
   };
 
   return (

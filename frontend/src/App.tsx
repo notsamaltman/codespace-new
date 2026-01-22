@@ -30,7 +30,7 @@ const App = () => (
           {/* Protected */}
           <Route element={<RequireAuth />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/editor" element={<Editor />} />
+            <Route path="/editor/:id" element={<Editor />} />
           </Route>
 
           {/* Catch-all */}
