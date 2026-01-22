@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/editor/Header";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { SidePanel } from "@/components/editor/SidePanel";
 import { MobileToolbar } from "@/components/editor/MobileToolbar";
 import { getClassroomById } from "@/data/classrooms";
 import { Button } from "@/components/ui/button";
+import { Share2, Check } from "lucide-react";
 
 const defaultCode = `# Collaborative coding session
 def main():
@@ -17,7 +18,6 @@ if __name__ == "__main__":
 
 const Index = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const classroomId = searchParams.get("classroom");
   const classroom = classroomId ? getClassroomById(classroomId) : undefined;
@@ -26,6 +26,8 @@ const Index = () => {
   const [language, setLanguage] = useState(classroom?.language || "python");
   const [code, setCode] = useState(classroom?.code || defaultCode);
 
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (classroom) {
       setLanguage(classroom.language);
@@ -33,10 +35,13 @@ const Index = () => {
     }
   }, [classroom]);
 
-  // ✅ LOGOUT — SIMPLE, LOCAL, DONE
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/auth?mode=login");
+  // ✅ SHARE HANDLER
+  const handleShare = async () => {
+    const link = `${window.location.origin}/editor?classroom=${classroomId}`;
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -47,10 +52,27 @@ const Index = () => {
         roomName={classroom?.name}
       />
 
-      {/* 🔴 LOGOUT BUTTON — GUARANTEED VISIBLE */}
+      {/* 🔵 SHARE BAR (replaces logout completely) */}
       <div className="border-b px-4 py-2 flex justify-end">
-        <Button variant="destructive" onClick={handleLogout}>
-          Logout
+        <Button
+          onClick={handleShare}
+          className={`h-9 px-4 transition-colors ${
+            copied
+              ? "bg-success hover:bg-success text-success-foreground"
+              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+          }`}
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 mr-2" />
+              Link copied
+            </>
+          ) : (
+            <>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </>
+          )}
         </Button>
       </div>
 

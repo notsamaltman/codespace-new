@@ -1,48 +1,49 @@
-import { Users, Wifi, ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import {
+  Users,
+  Wifi,
+  ArrowLeft,
+  LayoutDashboard,
+  LogOut,
+} from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { useNavigate } from "react-router-dom";
 
-interface Collaborator {
-  id: string;
-  name: string;
-  initials: string;
-  color: "collab-1" | "collab-2" | "collab-3" | "collab-4";
-  isActive: boolean;
-}
-
 interface HeaderProps {
   roomId?: string;
   roomName?: string;
-  collaborators?: Collaborator[];
 }
 
-const defaultCollaborators: Collaborator[] = [
-  { id: "1", name: "You", initials: "ME", color: "collab-1", isActive: true },
-  { id: "2", name: "Alex Chen", initials: "AC", color: "collab-2", isActive: true },
-  { id: "3", name: "Sarah Kim", initials: "SK", color: "collab-3", isActive: false },
+// ✅ Frontend-only online users
+const onlineUsers = [
+  { id: "1", name: "You" },
+  { id: "2", name: "Alex Chen" },
 ];
-
-const colorClasses = {
-  "collab-1": "bg-collab-1",
-  "collab-2": "bg-collab-2",
-  "collab-3": "bg-collab-3",
-  "collab-4": "bg-collab-4",
-};
 
 export function Header({
   roomId = "room-abc123",
   roomName,
 }: HeaderProps) {
   const navigate = useNavigate();
-  const activeCount = collaborators.filter((c) => c.isActive).length;
+  const userInitials = "ME";
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/auth");
+  };
 
   return (
-    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6 shrink-0">
       {/* Left: Back + Logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 pr-2">
         <Button
           variant="ghost"
           size="icon"
@@ -70,47 +71,59 @@ export function Header({
         </span>
       </div>
 
-      {/* Right: Collaborators */}
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Users className="w-4 h-4" />
-          <span>{activeCount} online</span>
-        </div>
+      {/* Right side */}
+      <div className="flex items-center gap-4 pr-4">
+        {/* ✅ Online dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
+              <Users className="w-6 h-6" />
+              <span>{onlineUsers.length} online</span>
+            </button>
+          </DropdownMenuTrigger>
 
-        <div className="flex -space-x-2">
-          {collaborators.map((collaborator) => (
-            <Tooltip key={collaborator.id}>
-              <TooltipTrigger asChild>
-                <div className="relative">
-                  <Avatar
-                    className={`w-8 h-8 border-2 border-card ring-2 ${
-                      collaborator.isActive
-                        ? "ring-success/30"
-                        : "ring-transparent"
-                    }`}
-                  >
-                    <AvatarFallback
-                      className={`${colorClasses[collaborator.color]} text-xs font-medium text-white`}
-                    >
-                      {collaborator.initials}
-                    </AvatarFallback>
-                  </Avatar>
+          <DropdownMenuContent align="end" className="w-48">
+            <div className="px-3 py-2 text-xs text-muted-foreground border-b">
+              Online users
+            </div>
 
-                  {collaborator.isActive && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full border-2 border-card" />
-                  )}
-                </div>
-              </TooltipTrigger>
+            {onlineUsers.map((user) => (
+              <DropdownMenuItem
+                key={user.id}
+                className="flex items-center justify-between"
+              >
+                <span>{user.name}</span>
+                <span className="w-2 h-2 rounded-full bg-success" />
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-              <TooltipContent>
-                <p>
-                  {collaborator.name}{" "}
-                  {collaborator.isActive ? "(online)" : "(away)"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+        {/* User dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="h-11 w-11 cursor-pointer">
+              <AvatarFallback className="bg-muted text-xs font-medium">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+              <LayoutDashboard className="w-4 h-4 mr-2" />
+              Dashboard
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
