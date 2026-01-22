@@ -29,6 +29,7 @@ const Index = () => {
 
   const [socket, setSocket] = useState(null);
   const [participants, setParticipants] = useState([]); // { userId, name, color, cursor }
+  const hasInitializedCodeRef = useRef(false);
 
   const [localCursor, setLocalCursor] = useState(null);
   const lastSentCursorRef = useRef(null);
@@ -52,16 +53,36 @@ const Index = () => {
 
     // Receive initial room state
     newSocket.on("room-state", ({ participants: existingParticipants, code: roomCode }) => {
+  // Run ONLY once
+  if (!hasInitializedCodeRef.current) {
+    if (roomCode && roomCode.trim().length > 0) {
+      // Existing room → use saved code
       setCode(roomCode);
-      const normalized = (existingParticipants || []).map(p => ({
-        ...p,
-        name: typeof p.name === "string" ? p.name : p.name?.email || "Anonymous"
-      }));
-      setParticipants(normalized);
-    });
+    } else {
+      // New room → use default and persist it
+      setCode(defaultCode);
+      newSocket.emit("code-change", {
+        roomId: classroomId,
+        code: defaultCode,
+      });
+    }
+
+    hasInitializedCodeRef.current = true;
+  }
+
+  const normalized = (existingParticipants || []).map(p => ({
+    ...p,
+    name: typeof p.name === "string" ? p.name : p.name?.email || "Anonymous",
+  }));
+
+  setParticipants(normalized);
+});
+
 
     // Listen for code updates
-    newSocket.on("code-update", ({ code: newCode }) => setCode(newCode));
+    newSocket.on("code-update", ({ code: newCode }) => {
+      console.log(`updated ${newCode}`);
+      setCode(newCode)});
 
     // Listen for user joins
     newSocket.on("user-joined", ({ userId, name }) => {
@@ -164,13 +185,23 @@ useEffect(() => {
     }
   };
 
-  const handleCodeChange = (newCode) => {
-    setCode(newCode);
-    if (socket) socket.emit("code-change", { roomId: classroomId, code: newCode });
-  };
+  // Inside Index component:
+
+// Remove emitting on every change
+const handleCodeChange = (newCode: string) => {
+  setCode(newCode);
+  // Removed: socket.emit("code-change", ...)
+};
+
+// New Save handler
+const handleSave = () => {
+  if (!socket) return;
+  socket.emit("code-change", { roomId: classroomId, code });
+};
+
 
   const handleShare = async () => {
-    const link = `${window.location.origin}/editor?classroom=${classroomId}`;
+    const link = `${window.location.origin}/editor/${classroomId}`;
     await navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -215,6 +246,13 @@ useEffect(() => {
         >
           {copied ? <><Check className="w-4 h-4 mr-2"/> Link copied</> : <><Share2 className="w-4 h-4 mr-2"/> Share</>}
         </Button>
+
+        <Button
+      onClick={handleSave}
+      className="h-9 px-4 bg-secondary text-secondary-foreground"
+    >
+      Save
+    </Button>
 
         {/* Live participants */}
         <div className="flex items-center space-x-2">

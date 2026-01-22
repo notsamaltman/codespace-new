@@ -129,7 +129,10 @@ export const initSpaceSockets = (server, db) => {
     // ------------------------------
     socket.on("code-change", ({ roomId, code }) => {
       const room = rooms.get(roomId);
-      if (!room) return;
+      if (!room) {
+        console.log("room not found");
+        return;
+      }
 
       const userId = socket.id;
       room.code = code;
@@ -203,5 +206,4 @@ export const initSpaceSockets = (server, db) => {
     });
   });
 
-  console.log("✅ spaceRoutes.js WebSocket logic active");
 };

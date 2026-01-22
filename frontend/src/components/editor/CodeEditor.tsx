@@ -108,7 +108,7 @@ useEffect(() => {
       return {
         range: new monaco.Range(line, col, line, col),
         options: {
-          className: "remote-cursor",
+          className: `remote-cursor-${p.userId}`,
           afterContentClassName: `remote-cursor-label-${p.userId}`,
           stickiness: monaco.editor.TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges,
         },
@@ -125,20 +125,50 @@ useEffect(() => {
       style.id = styleId;
       style.innerHTML = `
         .remote-cursor-label-${p.userId}::after {
-          content: "${p.name}";
-          color: ${p.color};
+          content: "${p.name} is editing";
+          color: white;
           font-weight: bold;
-          font-size: 0.8rem;
-          margin-left: 4px;
+          font-size: 0.55rem;
+          margin-left: 6px;
+          background-color: ${p.color};
+          padding: 0 4px;
+          border-radius: 3px;
         }
-        .remote-cursor {
-          border-left: 2px solid ${p.color};
+        .remote-cursor-${p.userId} {
+          border-left: 3px solid ${p.color};
+          background-color: rgba(255, 255, 0, 0.2); /* subtle highlight behind cursor */
         }
       `;
       document.head.appendChild(style);
     }
   });
 }, [participants]);
+
+// -----------------------------
+// Sync remote code → Monaco
+// -----------------------------
+useEffect(() => {
+  if (!editorRef.current) return;
+
+  const model = editorRef.current.getModel();
+  if (!model) return;
+
+  // Already in sync → do nothing
+  if (model.getValue() === code) return;
+
+  model.pushEditOperations(
+    [],
+    [
+      {
+        range: model.getFullModelRange(),
+        text: code,
+      },
+    ],
+    () => null
+  );
+
+  setEditorValue(code);
+}, [code]);
 
 
   return (
