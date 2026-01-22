@@ -1,22 +1,22 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
-import type { editor } from "monaco-editor";
+import type * as monacoType from "monaco-editor"; // ✅ import monaco types
 
-interface CodeEditorProps {
-  code?: string;
-  onChange?: (code: string) => void;
-  language?: string;
+export interface Participant {
+  userId: string;
+  name: string;
+  color: string;
+  cursor?: { line: number; ch: number };
 }
 
-const defaultCode = `# Collaborative coding session
-def main():
-    print("Hackvision")
+export interface CodeEditorProps {
+  code: string;
+  language: string;
+  onChange: (code: string) => void;
+  participants?: Participant[];
+  onCursorChange?: (cursor: { line: number; ch: number }) => void;
+}
 
-if __name__ == "__main__":
-    main()
-`;
-
-// Language mapping for Monaco
 const languageMap: Record<string, string> = {
   c: "c",
   cpp: "cpp",
@@ -25,18 +25,22 @@ const languageMap: Record<string, string> = {
   java: "java",
 };
 
-export function CodeEditor({ 
-  code = defaultCode, 
-  onChange, 
-  language = "python",
-}: CodeEditorProps) {
+export const CodeEditor: React.FC<CodeEditorProps> = ({
+  code,
+  language,
+  onChange,
+  participants = [],
+  onCursorChange,
+}) => {
   const [editorValue, setEditorValue] = useState(code);
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof monacoType | null>(null);
+  const decorationIdsRef = useRef<string[]>([]);
 
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
-    // Define custom dark theme matching our design system
     monaco.editor.defineTheme("codesync-dark", {
       base: "vs-dark",
       inherit: true,
@@ -61,24 +65,20 @@ export function CodeEditor({
         "editorLineNumber.foreground": "#4b5563",
         "editorLineNumber.activeForeground": "#9ca3af",
         "editorCursor.foreground": "#3b82f6",
-        "editor.inactiveSelectionBackground": "#3b82f630",
-        "editorIndentGuide.background": "#1e293b",
-        "editorIndentGuide.activeBackground": "#334155",
-        "editorWidget.background": "#0f172a",
-        "editorWidget.border": "#1e293b",
-        "editorSuggestWidget.background": "#0f172a",
-        "editorSuggestWidget.border": "#1e293b",
-        "editorSuggestWidget.selectedBackground": "#1e293b",
-        "editorHoverWidget.background": "#0f172a",
-        "editorHoverWidget.border": "#1e293b",
-        "scrollbarSlider.background": "#1e293b80",
-        "scrollbarSlider.hoverBackground": "#334155",
-        "scrollbarSlider.activeBackground": "#475569",
       },
     });
 
     monaco.editor.setTheme("codesync-dark");
     editor.focus();
+
+    // Local cursor change
+    // In CodeEditor.tsx
+editor.onDidChangeCursorPosition((e) => {
+  const cursor = { line: e.position.lineNumber - 1, ch: e.position.column - 1 };
+  onCursorChange?.(cursor);  // send to parent immediately
+});
+
+
   };
 
   const handleEditorChange = (value: string | undefined) => {
@@ -87,9 +87,63 @@ export function CodeEditor({
     onChange?.(newValue);
   };
 
+  // -----------------------------
+  // Remote cursors
+  // -----------------------------
+  // -----------------------------
+// Remote cursors
+// -----------------------------
+useEffect(() => {
+  const editor = editorRef.current;
+  const monaco = monacoRef.current;
+  if (!editor || !monaco) return;
+
+  // Filter only participants that have a cursor
+  const decorations: monacoType.editor.IModelDeltaDecoration[] = participants
+    .filter((p) => p.cursor)
+    .map((p) => {
+      const line = p.cursor!.line + 1; // Monaco is 1-indexed
+      const col = p.cursor!.ch + 1;
+
+      return {
+        range: new monaco.Range(line, col, line, col),
+        options: {
+          className: "remote-cursor",
+          afterContentClassName: `remote-cursor-label-${p.userId}`,
+          stickiness: monaco.editor.TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges,
+        },
+      };
+    });
+
+  decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, decorations);
+
+  participants.forEach((p) => {
+    if (!p.cursor) return;
+    const styleId = `remote-cursor-style-${p.userId}`;
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.innerHTML = `
+        .remote-cursor-label-${p.userId}::after {
+          content: "${p.name}";
+          color: ${p.color};
+          font-weight: bold;
+          font-size: 0.8rem;
+          margin-left: 4px;
+        }
+        .remote-cursor {
+          border-left: 2px solid ${p.color};
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  });
+}, [participants]);
+
+
   return (
     <div className="flex-1 flex flex-col bg-editor rounded-lg overflow-hidden border border-border">
-      {/* Editor header */}
+      {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-destructive/80" />
@@ -109,55 +163,14 @@ export function CodeEditor({
           value={editorValue}
           onChange={handleEditorChange}
           onMount={handleEditorMount}
-          loading={
-            <div className="flex items-center justify-center h-full bg-editor">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <span>Loading editor...</span>
-              </div>
-            </div>
-          }
           options={{
             fontSize: 14,
             fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-            fontLigatures: true,
-            lineHeight: 24,
-            padding: { top: 16, bottom: 16 },
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            smoothScrolling: true,
-            cursorBlinking: "smooth",
-            cursorSmoothCaretAnimation: "on",
-            renderLineHighlight: "line",
-            renderWhitespace: "selection",
-            bracketPairColorization: { enabled: true },
-            autoClosingBrackets: "languageDefined",
-            autoClosingQuotes: "languageDefined",
-            autoIndent: "advanced",
-            formatOnPaste: true,
-            formatOnType: true,
-            suggestOnTriggerCharacters: true,
-            acceptSuggestionOnEnter: "on",
-            tabCompletion: "on",
-            wordBasedSuggestions: "currentDocument",
-            quickSuggestions: {
-              other: true,
-              comments: false,
-              strings: false,
-            },
-            scrollbar: {
-              verticalScrollbarSize: 10,
-              horizontalScrollbarSize: 10,
-              useShadows: false,
-            },
-            overviewRulerLanes: 0,
-            hideCursorInOverviewRuler: true,
-            overviewRulerBorder: false,
-            contextmenu: true,
-            mouseWheelZoom: true,
           }}
         />
       </div>
     </div>
   );
-}
+};

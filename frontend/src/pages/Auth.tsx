@@ -57,6 +57,7 @@ const Auth = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: formData.email,
+          username:formData.name,
           password: formData.password,
           ...(mode === "signup" && { name: formData.name }),
         }),

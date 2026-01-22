@@ -10,12 +10,12 @@ const SECRET = "super_secret_key";
 export default (db) => {
 
   router.post("/signup", async (req, res) => {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
     const hashed = await bcrypt.hash(password, 10);
 
     db.run(
-      "INSERT INTO users (email, password) VALUES (?, ?)",
-      [email, hashed],
+      "INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
+      [email, username, hashed],
       (err) => {
         if (err) return res.status(400).json({ error: "User exists" });
         res.json({ message: "Signup successful" });

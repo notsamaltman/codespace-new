@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { io } from "socket.io-client"; // <-- import socket.io-client
+import { io } from "socket.io-client";
 import { Header } from "@/components/editor/Header";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { SidePanel } from "@/components/editor/SidePanel";
@@ -27,11 +27,15 @@ const Index = () => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [roomInfo, setRoomInfo] = useState(null);
 
-  // -------------------------
-  // 1️⃣ Create socket instance
-  // -------------------------
   const [socket, setSocket] = useState(null);
+  const [participants, setParticipants] = useState([]); // { userId, name, color, cursor }
 
+  const [localCursor, setLocalCursor] = useState(null);
+  const lastSentCursorRef = useRef(null);
+
+  // -------------------------
+  // Socket.IO connection
+  // -------------------------
   useEffect(() => {
     if (!classroomId || checkingRoom || showJoinModal) return;
 
@@ -43,20 +47,42 @@ const Index = () => {
     setSocket(newSocket);
     newSocket.connect();
 
-    // join the room
-    newSocket.emit("join-room", { roomId: classroomId });
+    // Join room
+    newSocket.emit("join-room", { roomId: classroomId, token: localStorage.getItem("token") });
 
-    // listen for code updates from other users
-    newSocket.on("code-update", (newCode) => {
-      setCode(newCode);
+    // Receive initial room state
+    newSocket.on("room-state", ({ participants: existingParticipants, code: roomCode }) => {
+      setCode(roomCode);
+      const normalized = (existingParticipants || []).map(p => ({
+        ...p,
+        name: typeof p.name === "string" ? p.name : p.name?.email || "Anonymous"
+      }));
+      setParticipants(normalized);
     });
 
-    // listen for users joining (optional)
-    newSocket.on("user-joined", ({ userId }) => {
-      console.log("User joined:", userId);
+    // Listen for code updates
+    newSocket.on("code-update", ({ code: newCode }) => setCode(newCode));
+
+    // Listen for user joins
+    newSocket.on("user-joined", ({ userId, name }) => {
+      setParticipants(prev => {
+        if (prev.find(p => p.userId === userId)) return prev;
+        return [...prev, { userId, name: typeof name === "string" ? name : name?.email || "Anonymous" }];
+      });
     });
 
-    // cleanup on unmount or room change
+    // Listen for user leaves
+    newSocket.on("user-left", ({ userId }) => {
+      setParticipants(prev => prev.filter(p => p.userId !== userId));
+    });
+
+    // Listen for cursor updates
+    newSocket.on("cursor-batch-update", ({ userId, cursor, color, name }) => {
+      setParticipants(prev =>
+        prev.map(p => (p.userId === userId ? { ...p, cursor, color, name } : p))
+      );
+    });
+
     return () => {
       newSocket.emit("leave-room", { roomId: classroomId });
       newSocket.disconnect();
@@ -64,27 +90,33 @@ const Index = () => {
   }, [classroomId, checkingRoom, showJoinModal]);
 
   // -------------------------
-  // 2️⃣ Broadcast local code changes
+  // Emit cursor sync every 5s if changed
   // -------------------------
-  const handleCodeChange = (newCode) => {
-    setCode(newCode);
-    if (socket) {
-      socket.emit("code-change", { roomId: classroomId, code: newCode });
-    }
-  };
+  useEffect(() => {
+    if (!socket || !localCursor) return;
+
+    const interval = setInterval(() => {
+      const last = lastSentCursorRef.current;
+      if (!last || last.line !== localCursor.line || last.ch !== localCursor.ch) {
+        socket.emit("cursor-sync", { roomId: classroomId, cursor: localCursor });
+        lastSentCursorRef.current = localCursor;
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [socket, localCursor, classroomId]);
 
   // -------------------------
-  // 3️⃣ Room access logic (unchanged)
+  // Room access
   // -------------------------
   useEffect(() => {
     if (!classroomId) return;
 
     const checkRoom = async () => {
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/rooms/check/${classroomId}`,
-          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-        );
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rooms/check/${classroomId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
         const data = await res.json();
 
         if (data.inRoom) {
@@ -104,24 +136,37 @@ const Index = () => {
     checkRoom();
   }, [classroomId]);
 
+  useEffect(() => {
+  if (!localCursor) return;
+  setParticipants(prev =>
+    prev.map(p =>
+      p.userId === socket?.id ? { ...p, cursor: localCursor } : p
+    )
+  );
+}, [localCursor, socket?.id]);
+useEffect(() => {
+  if (!socket || !localCursor) return;
+  socket.emit("cursor-sync", { roomId: classroomId, cursor: localCursor });
+}, [localCursor, socket, classroomId]);
+
+
   const handleJoinRoom = async () => {
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/rooms/join`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ roomId: classroomId }),
-        }
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rooms/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ roomId: classroomId }),
+      });
       if (!res.ok) throw new Error("Join failed");
       setShowJoinModal(false);
     } catch (err) {
       console.error("Join room error", err);
     }
+  };
+
+  const handleCodeChange = (newCode) => {
+    setCode(newCode);
+    if (socket) socket.emit("code-change", { roomId: classroomId, code: newCode });
   };
 
   const handleShare = async () => {
@@ -141,22 +186,19 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Join Modal */}
       {showJoinModal && roomInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-background border rounded-lg shadow-lg w-full max-w-md p-6">
             <h2 className="text-xl font-semibold mb-2">Join Room</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              You are not a member of this room.
-            </p>
+            <p className="text-sm text-muted-foreground mb-4">You are not a member of this room.</p>
             <div className="space-y-2 text-sm">
               <p><strong>Name:</strong> {roomInfo.name}</p>
               <p><strong>Members:</strong> {roomInfo.participantCount}</p>
               <p><strong>Language:</strong> {roomInfo.language || "Not set"}</p>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => window.history.back()}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
               <Button onClick={handleJoinRoom}>Join Room</Button>
             </div>
           </div>
@@ -165,47 +207,45 @@ const Index = () => {
 
       <Header roomId={classroomId || undefined} roomName={roomInfo?.name} />
 
-      <div className="border-b px-4 py-2 flex justify-end">
+      {/* Share + Participants */}
+      <div className="border-b px-4 py-2 flex justify-between items-center">
         <Button
           onClick={handleShare}
-          className={`h-9 px-4 ${
-            copied
-              ? "bg-success text-success-foreground"
-              : "bg-primary text-primary-foreground"
-          }`}
+          className={`h-9 px-4 ${copied ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground"}`}
         >
-          {copied ? (
-            <>
-              <Check className="w-4 h-4 mr-2" /> Link copied
-            </>
-          ) : (
-            <>
-              <Share2 className="w-4 h-4 mr-2" /> Share
-            </>
-          )}
+          {copied ? <><Check className="w-4 h-4 mr-2"/> Link copied</> : <><Share2 className="w-4 h-4 mr-2"/> Share</>}
         </Button>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 flex flex-col p-4 pb-20 lg:pb-4 min-w-0">
-          <CodeEditor code={code} onChange={handleCodeChange} language={language} />
-        </main>
+        {/* Live participants */}
+        <div className="flex items-center space-x-2">
+        {participants.map(p => (
+          <div key={p.userId} className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm">
+            {p.name} {p.cursor ? `(L${p.cursor.line + 1}:C${p.cursor.ch + 1})` : ""}
+          </div>
+        ))}
 
-        <div className={`${isPanelOpen ? "flex" : "hidden"} lg:flex`}>
-          <SidePanel
-            isOpen={isPanelOpen}
-            onClose={() => setIsPanelOpen(false)}
-            language={language}
-            onLanguageChange={setLanguage}
-            code={code}
-          />
+          <span className="ml-2 text-sm text-muted-foreground">({participants.length} online)</span>
         </div>
       </div>
 
-      <MobileToolbar
-        isPanelOpen={isPanelOpen}
-        onTogglePanel={() => setIsPanelOpen(!isPanelOpen)}
-      />
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        <main className="flex-1 flex flex-col p-4 pb-20 lg:pb-4 min-w-0">
+          <CodeEditor
+            code={code}
+            onChange={handleCodeChange}
+            language={language}
+            participants={participants.filter(p => p.userId !== socket?.id)}
+            onCursorChange={setLocalCursor}
+          />
+        </main>
+
+        <div className={`${isPanelOpen ? "flex" : "hidden"} lg:flex`}>
+          <SidePanel isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} language={language} onLanguageChange={setLanguage} code={code} />
+        </div>
+      </div>
+
+      <MobileToolbar isPanelOpen={isPanelOpen} onTogglePanel={() => setIsPanelOpen(!isPanelOpen)} />
     </div>
   );
 };
