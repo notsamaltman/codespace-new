@@ -113,6 +113,76 @@ export default (db) => {
   });
 });
 
+  router.post("/join", auth, (req, res) => {
+    const { roomId } = req.body;
+    const userId = req.user.id;
+
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId is required" });
+    }
+
+    // 1. Check if room exists
+    db.get(
+      `SELECT * FROM rooms WHERE id = ?`,
+      [roomId],
+      (err, room) => {
+        if (err) {
+          console.error("DB error checking room:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+
+        if (!room) {
+          return res.status(404).json({ error: "Room not found" });
+        }
+
+        // 2. Check if user already joined
+        db.get(
+          `SELECT * FROM room_users WHERE room_id = ? AND user_id = ?`,
+          [roomId, userId],
+          (err, existing) => {
+            if (err) {
+              console.error("DB error checking membership:", err);
+              return res.status(500).json({ error: "Database error" });
+            }
+
+            if (existing) {
+              return res.status(409).json({ error: "Already joined room" });
+            }
+
+            // 3. Insert into room_users
+            db.run(
+              `INSERT INTO room_users (room_id, user_id) VALUES (?, ?)`,
+              [roomId, userId],
+              function (err) {
+                if (err) {
+                  console.error("DB error inserting room_users:", err);
+                  return res.status(500).json({ error: "Failed to join room" });
+                }
+
+                // 4. Increment participant count
+                db.run(
+                  `UPDATE rooms SET participant_count = participant_count + 1 WHERE id = ?`,
+                  [roomId],
+                  (err) => {
+                    if (err) {
+                      console.error("DB error updating participant count:", err);
+                      return res.status(500).json({ error: "Failed to update count" });
+                    }
+
+                    // 5. Success
+                    res.json({
+                      roomId,
+                      message: "Joined room successfully",
+                    });
+                  }
+                );
+              }
+            );
+          }
+        );
+      }
+    );
+  });
 
   return router;
 };
