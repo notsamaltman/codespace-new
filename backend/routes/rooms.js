@@ -208,5 +208,62 @@ export default (db) => {
     );
   });
 
+  // ===== Check Room Access =====
+router.get("/check/:roomId", auth, (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  if (!roomId) {
+    return res.status(400).json({ error: "roomId is required" });
+  }
+
+  // 1. Check if room exists
+  db.get(
+    `SELECT * FROM rooms WHERE id = ?`,
+    [roomId],
+    (err, room) => {
+      if (err) {
+        console.error("DB error fetching room:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // 2. Check if user is already in room
+      db.get(
+        `SELECT 1 FROM room_users WHERE room_id = ? AND user_id = ?`,
+        [roomId, userId],
+        (err2, membership) => {
+          if (err2) {
+            console.error("DB error checking membership:", err2);
+            return res.status(500).json({ error: "Database error" });
+          }
+
+          // ✅ User already in room
+          if (membership) {
+            return res.json({ inRoom: true });
+          }
+
+          // ❌ Not in room → return room info
+          res.json({
+            inRoom: false,
+            room: {
+              id: room.id,
+              name: room.name,
+              hostId: room.host_id,
+              participantCount: room.participant_count,
+              language: room.language,
+              code: room.code,
+            },
+          });
+        }
+      );
+    }
+  );
+});
+
+
   return router;
 };

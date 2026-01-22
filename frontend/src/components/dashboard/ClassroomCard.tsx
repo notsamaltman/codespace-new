@@ -25,7 +25,7 @@ export const ClassroomCard = ({
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/editor?classroom=${id}`);
+    navigate(`/editor/${id}`);
   };
 
   // ✅ DELETE ROOM — INLINE, NO EXTERNAL FILES

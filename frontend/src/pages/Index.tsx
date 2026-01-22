@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Header } from "@/components/editor/Header";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { SidePanel } from "@/components/editor/SidePanel";
 import { MobileToolbar } from "@/components/editor/MobileToolbar";
-import { getClassroomById } from "@/data/classrooms";
 import { Button } from "@/components/ui/button";
 import { Share2, Check } from "lucide-react";
 
@@ -17,49 +16,138 @@ if __name__ == "__main__":
 `;
 
 const Index = () => {
-  const [searchParams] = useSearchParams();
-
-  const classroomId = searchParams.get("classroom");
-  const classroom = classroomId ? getClassroomById(classroomId) : undefined;
+  const { id: classroomId } = useParams();
 
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [language, setLanguage] = useState(classroom?.language || "python");
-  const [code, setCode] = useState(classroom?.code || defaultCode);
+  const [language, setLanguage] = useState("python");
+  const [code, setCode] = useState(defaultCode);
 
   const [copied, setCopied] = useState(false);
 
+  // 🔐 room access states
+  const [checkingRoom, setCheckingRoom] = useState(true);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [roomInfo, setRoomInfo] = useState(null);
+
+  // ✅ CHECK ROOM ACCESS ON LOAD
   useEffect(() => {
-    if (classroom) {
-      setLanguage(classroom.language);
-      setCode(classroom.code);
+    if (!classroomId) return;
+
+    const checkRoom = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/rooms/check/${classroomId}`,
+          {
+            headers: {
+
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+
+        if (data.inRoom) {
+          setRoomInfo(data.room || null);
+          setCheckingRoom(false);
+        } else {
+          setRoomInfo(data.room);
+          setShowJoinModal(true);
+          setCheckingRoom(false);
+        }
+      } catch (err) {
+        console.error("Room check failed", err);
+        setCheckingRoom(false);
+      }
+    };
+
+    checkRoom();
+  }, [classroomId]);
+
+  // ✅ JOIN ROOM
+  const handleJoinRoom = async () => {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/rooms/join`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ roomId: classroomId }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Join failed");
+
+      setShowJoinModal(false);
+    } catch (err) {
+      console.error("Join room error", err);
     }
-  }, [classroom]);
+  };
 
   // ✅ SHARE HANDLER
   const handleShare = async () => {
     const link = `${window.location.origin}/editor?classroom=${classroomId}`;
     await navigator.clipboard.writeText(link);
     setCopied(true);
-
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ⏳ BLOCK UI WHILE CHECKING
+  if (checkingRoom) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Checking room access...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* 🔒 JOIN ROOM MODAL */}
+      {showJoinModal && roomInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-background border rounded-lg shadow-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-semibold mb-2">Join Room</h2>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              You are not a member of this room.
+            </p>
+
+            <div className="space-y-2 text-sm">
+              <p><strong>Name:</strong> {roomInfo.name}</p>
+              <p><strong>Members:</strong> {roomInfo.participantCount}</p>
+              <p><strong>Language:</strong> {roomInfo.language || "Not set"}</p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => window.history.back()}>
+                Cancel
+              </Button>
+              <Button onClick={handleJoinRoom}>
+                Join Room
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <Header
         roomId={classroomId || undefined}
-        roomName={classroom?.name}
+        roomName={roomInfo?.name}
       />
 
-      {/* 🔵 SHARE BAR (replaces logout completely) */}
+      {/* Share bar */}
       <div className="border-b px-4 py-2 flex justify-end">
         <Button
           onClick={handleShare}
-          className={`h-9 px-4 transition-colors ${
+          className={`h-9 px-4 ${
             copied
-              ? "bg-success hover:bg-success text-success-foreground"
-              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              ? "bg-success text-success-foreground"
+              : "bg-primary text-primary-foreground"
           }`}
         >
           {copied ? (
