@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { AuthNavbar } from "@/components/landing/AuthNavbar";
 import { ClassroomList } from "@/components/dashboard/ClassroomList";
 import { classroomsData, getCodePreview } from "@/data/classrooms";
 import CreateJoinSpaceModal from "@/components/dashboard/CreateJoinSpaceModal";
@@ -27,9 +27,9 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={mockUser} />
+      <AuthNavbar />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pt-24 pb-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-foreground">
             Your Spaces

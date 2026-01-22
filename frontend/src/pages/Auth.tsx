@@ -81,7 +81,7 @@ const Auth = () => {
       });
 
       if (mode === "login") {
-        navigate("/editor");
+        navigate("/dashboard");
       } else {
         setMode("login");
       }

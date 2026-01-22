@@ -20,7 +20,7 @@ export const PublicNavbar = () => {
     { href: "/", label: "Home" },
     { href: "/features", label: "Features" },
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/editor", label: "Editor" },
+    //{ href: "/editor", label: "Editor" },
   ];
 
   return (
