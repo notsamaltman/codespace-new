@@ -3,11 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-<<<<<<< HEAD
-import ProtectedRoute from "@/components/ProtectedRoute";
-=======
-
->>>>>>> fd82855d58c884cad4fa7c0d478f025cf39fb1f8
 import Landing from "./pages/Landing";
 import Features from "./pages/Features";
 import Auth from "./pages/Auth";
