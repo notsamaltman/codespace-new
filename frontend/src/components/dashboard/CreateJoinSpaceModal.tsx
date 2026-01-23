@@ -115,7 +115,7 @@ export default function CreateJoinSpaceModal({ open, onClose }) {
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="text-xl font-semibold mb-6">Create or Join Space</h2>
+        <h2 className="text-xl font-semibold mb-6">Create Space</h2>
 
         {/* CREATE SPACE */}
         <div className="space-y-3 mb-8">
