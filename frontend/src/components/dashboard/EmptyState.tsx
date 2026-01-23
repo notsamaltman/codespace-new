@@ -12,14 +12,14 @@ export const EmptyState = ({ onCreateClassroom }: EmptyStateProps) => {
         <FolderOpen className="w-8 h-8 text-muted-foreground" />
       </div>
       <h3 className="text-lg font-medium text-foreground mb-1">
-        No classrooms yet
+        No spaces yet
       </h3>
       <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-        You haven't joined any classrooms yet. Create your first classroom to start collaborating with others.
+        You haven't joined any spacess yet. Create your first space to start collaborating with others.
       </p>
       <Button onClick={onCreateClassroom} className="gap-2">
         <Plus className="w-4 h-4" />
-        Create your first classroom
+        Create your first Space
       </Button>
     </div>
   );
