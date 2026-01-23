@@ -23,10 +23,10 @@ interface HeaderProps {
 }
 
 // ✅ Frontend-only online users
-const onlineUsers = [
-  { id: "1", name: "You" },
-  { id: "2", name: "Alex Chen" },
-];
+// const onlineUsers = [
+//   { id: "1", name: "You" },
+//   { id: "2", name: "Alex Chen" },
+// ];
 
 export function Header({ roomId, roomName }: HeaderProps) {
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ export function Header({ roomId, roomName }: HeaderProps) {
       {/* Right side */}
       <div className="flex items-center gap-4 pr-4">
         {/* Online users dropdown */}
-        <DropdownMenu>
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
               <Users className="w-5 h-5" />
@@ -99,7 +99,7 @@ export function Header({ roomId, roomName }: HeaderProps) {
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         {/* User dropdown */}
         <DropdownMenu>

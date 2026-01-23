@@ -222,3 +222,150 @@ const Index = () => {
 };
 
 export default Index;
+// import { useState, useEffect, useRef } from "react";
+// import { useParams } from "react-router-dom";
+// import { io } from "socket.io-client";
+// import { Header } from "@/components/editor/Header";
+// import { CodeEditor } from "@/components/editor/CodeEditor";
+// import { SidePanel } from "@/components/editor/SidePanel";
+// import { MobileToolbar } from "@/components/editor/MobileToolbar";
+// import { Button } from "@/components/ui/button";
+// import { Share2, Check } from "lucide-react";
+
+// const defaultCode = `# Collaborative coding session
+// def main():
+//     print("Hackvision")
+
+// if __name__ == "__main__":
+//     main()
+// `;
+
+// const Index = () => {
+//   const { id: classroomId } = useParams();
+
+//   const [isPanelOpen, setIsPanelOpen] = useState(true);
+//   const [language, setLanguage] = useState("python");
+//   const [code, setCode] = useState(defaultCode);
+//   const [copied, setCopied] = useState(false);
+//   const [checkingRoom, setCheckingRoom] = useState(true);
+//   const [showJoinModal, setShowJoinModal] = useState(false);
+//   const [roomInfo, setRoomInfo] = useState(null);
+
+//   const [socket, setSocket] = useState(null);
+//   const [participants, setParticipants] = useState([]);
+//   const hasInitializedCodeRef = useRef(false);
+
+//   const [localCursor, setLocalCursor] = useState(null);
+//   const lastSentCursorRef = useRef(null);
+
+//   const handleCodeChange = (newCode: string) => {
+//     setCode(newCode);
+//   };
+
+//   const handleSave = () => {
+//     if (!socket) return;
+//     socket.emit("code-change", { roomId: classroomId, code });
+//   };
+
+//   const handleShare = async () => {
+//     const link = `${window.location.origin}/editor/${classroomId}`;
+//     await navigator.clipboard.writeText(link);
+//     setCopied(true);
+//     setTimeout(() => setCopied(false), 2000);
+//   };
+
+//   if (checkingRoom) {
+//     return (
+//       <div className="h-screen flex items-center justify-center bg-background">
+//         <p className="text-muted-foreground">Checking room access...</p>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="h-screen flex flex-col bg-background overflow-hidden">
+//       <Header roomId={classroomId || undefined} roomName={roomInfo?.name} />
+
+//       {/* Share + Save + Participants */}
+//       <div
+//         className="border-b px-4 py-2 flex justify-between items-center"
+//         style={{ gap: "8px" }}   // 👈 INLINE CSS ADDED
+//       >
+//         <Button
+//           onClick={handleShare}
+//           className={`h-9 px-4 ${
+//             copied
+//               ? "bg-success text-success-foreground"
+//               : "bg-primary text-primary-foreground"
+//           }`}
+//         >
+//           {copied ? (
+//             <>
+//               <Check className="w-4 h-4 mr-2" /> Link copied
+//             </>
+//           ) : (
+//             <>
+//               <Share2 className="w-4 h-4 mr-2" /> Share
+//             </>
+//           )}
+//         </Button>
+
+//         <Button
+//           onClick={handleSave}
+//           className="h-9 px-4 bg-secondary text-secondary-foreground"
+//           style={{ marginLeft: "-8px" }}   // 👈 INLINE CSS TO MOVE LEFT
+//         >
+//           Save
+//         </Button>
+
+//         {/* Participants */}
+//         <div className="flex items-center space-x-2">
+//           {participants.map((p) => (
+//             <div
+//               key={p.userId}
+//               className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm"
+//             >
+//               {p.name}
+//               {p.cursor
+//                 ? ` (L${p.cursor.line + 1}:C${p.cursor.ch + 1})`
+//                 : ""}
+//             </div>
+//           ))}
+//           <span className="ml-2 text-sm text-muted-foreground">
+//             ({participants.length} online)
+//           </span>
+//         </div>
+//       </div>
+
+//       {/* Main content */}
+//       <div className="flex-1 flex overflow-hidden">
+//         <main className="flex-1 flex flex-col p-4 pb-20 lg:pb-4 min-w-0">
+//           <CodeEditor
+//             code={code}
+//             onChange={handleCodeChange}
+//             language={language}
+//             participants={participants.filter((p) => p.userId !== socket?.id)}
+//             onCursorChange={setLocalCursor}
+//           />
+//         </main>
+
+//         <div className={`${isPanelOpen ? "flex" : "hidden"} lg:flex`}>
+//           <SidePanel
+//             isOpen={isPanelOpen}
+//             onClose={() => setIsPanelOpen(false)}
+//             language={language}
+//             onLanguageChange={setLanguage}
+//             code={code}
+//           />
+//         </div>
+//       </div>
+
+//       <MobileToolbar
+//         isPanelOpen={isPanelOpen}
+//         onTogglePanel={() => setIsPanelOpen(!isPanelOpen)}
+//       />
+//     </div>
+//   );
+// };
+
+// export default Index;
