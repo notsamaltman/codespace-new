@@ -67,7 +67,8 @@ export const initSpaceSockets = (server, db) => {
     // ------------------------------
     // Join a room
     // ------------------------------
-    socket.on("join-room", async ({ roomId, token }) => {
+    socket.on("join-room", async ({ roomId, token, side }) => {
+        if(side===true) return;
   const name = await getUsernameFromToken(token); // ✅ NOW A STRING
   const userId = socket.id;
 
@@ -127,19 +128,26 @@ export const initSpaceSockets = (server, db) => {
     // ------------------------------
     // Code change
     // ------------------------------
-    socket.on("code-change", ({ roomId, code }) => {
-      const room = rooms.get(roomId);
-      if (!room) {
-        console.log("room not found");
-        return;
-      }
+    socket.on("code-change", async ({ roomId, code, token }, callback) => {
+  const room = rooms.get(roomId);
+  if (!room) return;
 
-      const userId = socket.id;
-      room.code = code;
-      room.codeHistory.push({ code, timestamp: Date.now(), userId });
+  const userId = socket.id;
+  const entry = { code, timestamp: Date.now(), userId };
+  room.code = code;
+  room.codeHistory.push(entry);
 
-      socket.to(roomId).emit("code-update", { code, userId });
-    });
+  // Notify all clients with the updated code
+  io.to(roomId).emit("code-update", { code, userId });
+
+  // ✅ Send full updated history to all clients
+  io.to(roomId).emit("code-history-update", room.codeHistory);
+
+  if (callback) callback({ success: true });
+});
+
+
+
 
     // ------------------------------
     // Cursor movement
